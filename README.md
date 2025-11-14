@@ -1,64 +1,69 @@
 # やる・やったBot
 
-Discord で「やるぞ宣言」と「やったよ報告」ができる Bot です。
+Discord で「やるぞ宣言」と「やったよ報告」ができる学習サポート Bot です。
+ボタンを押すだけでモーダルが開き、入力内容は Discord の固定チャンネルと
+Google スプレッドシート（BigQuery 連携前段）に自動保存されます。
 
-## 🎯 機能
+## 🎯 主な特徴
 
-### `/yaru` - やるぞ宣言
-- やることを宣言できます
-- 締切を設定できます（任意）
-- 固定チャンネルに投稿されます
+- ボタン操作（/コマンド不要）でモーダルが開く
+- `/yaru` / `/yatta` でも従来通り操作可能
+- 入力内容を固定チャンネルへ投稿
+- 同時に Google スプレッドシート `yaru_yatta_log` へ保存
+- Replit 稼働を想定した keep-alive サーバー付き
 
-### `/yatta` - やったよ報告
-- やったことを報告できます
-- ひとこと感想を添えられます（任意）
-- 固定チャンネルに投稿されます
+## 🧱 データ連携
 
-## 📋 前提条件
+保存先スプレッドシート: [SOZOW 1on1 管理シート](https://docs.google.com/spreadsheets/d/157xGD-aGLFL4Iyteyg5i81NJa7hontZyj7fc_wmVJ0M/edit#gid=555110385)
 
-- Python 3.10 以上
-- Discord Bot のトークン
-- Bot が参加している Discord サーバー
+1. スプレッドシートに `yaru_yatta_log` シートを作成し、以下の列を用意してください。
+   | A:記録日時(JST) | B:種類 | C:Discord ID | D:Discord名 | E:メイン内容 | F:補足 |
+2. Google Cloud Console でサービスアカウントを作成し、JSON キーをダウンロード
+3. 対象シートをサービスアカウントのメールアドレスに「閲覧＋編集」権限で共有
 
-## 🚀 セットアップ手順
+## 📁 ファイル構成
 
-### 1. リポジトリをクローン
-
-```bash
-git clone https://github.com/yourusername/yaru_yatta_bot.git
-cd yaru_yatta_bot
+```
+yaru_yatta_bot/
+├── main.py              # Bot 本体（ボタン・モーダル・Sheets 連携）
+├── keep_alive.py        # Replit 用 Web サーバー
+├── requirements.txt     # 依存パッケージ
+├── .env.example         # 環境変数テンプレート
+├── .gitignore
+├── plan.md              # 実装計画メモ
+└── README.md            # このファイル
 ```
 
-### 2. 依存パッケージをインストール
+## 🔧 必要な環境変数（.env）
 
-```bash
-pip install -r requirements.txt
-```
-
-### 3. 環境変数を設定
-
-`.env` ファイルを作成し、Bot トークンを設定します：
+`.env.example` をコピーし、実際の値を設定してください。
 
 ```env
-BOT_TOKEN=あなたのBotトークンをここに貼り付け
+BOT_TOKEN=あなたのBotトークン
+TARGET_CHANNEL_ID=1435802151648497711
+GOOGLE_SERVICE_ACCOUNT_JSON=/absolute/path/to/service-account.json
+SPREADSHEET_ID=157xGD-aGLFL4Iyteyg5i81NJa7hontZyj7fc_wmVJ0M
+SHEET_NAME=yaru_yatta_log
 ```
 
-**Bot トークンの取得方法**:
-1. [Discord Developer Portal](https://discord.com/developers/applications) にアクセス
-2. 「New Application」をクリック
-3. アプリ名を入力（例: やる・やったBot）
-4. 「Bot」タブに移動
-5. 「Add Bot」をクリック
-6. Bot トークンをコピーして `.env` に保存
+- **BOT_TOKEN**: Discord Developer Portal > Bot > Reset Token
+- **TARGET_CHANNEL_ID**: 投稿先チャンネルの ID（Discord > 設定 > 開発者モード ON）
+- **GOOGLE_SERVICE_ACCOUNT_JSON**: サービスアカウント JSON への絶対パス
+- **SPREADSHEET_ID**: シート URL の `/d/` と `/edit` の間
+- **SHEET_NAME**: 追記したいシート名（存在しない場合は作成してください）
 
-### 4. Bot を起動
+## 🛠 セットアップ手順
 
 ```bash
+git clone https://github.com/opesys-del/yaru_yatta_bot.git
+cd yaru_yatta_bot
+pip install -r requirements.txt
+cp .env.example .env
+# .env を編集して各値を設定
 python main.py
 ```
 
-起動に成功すると、以下のようなメッセージが表示されます：
-
+起動成功時ログ例：
 ```
 Keep-alive サーバーを起動しました (ポート: 8080)
 Bot を起動中...
@@ -66,174 +71,82 @@ Bot を起動中...
 Bot が起動しました: やる・やったBot
 Bot ID: 1234567890123456789
 =====================================
-スラッシュコマンドを 2 件同期しました
-同期されたコマンド:
-  - /yaru
-  - /yatta
+スラッシュコマンドを 3 件同期しました
 ```
 
-## 🔐 Discord Bot の設定
+## 💡 Discord 側の使い方
 
-### 必要な権限
+### 1. ボタンを設置
 
-Bot に以下の権限を付与してください：
+管理者（メッセージ管理権限あり）が、ボタンを置きたいチャンネルで以下を実行：
 
-- `Send Messages` - メッセージ送信
-- `Use Slash Commands` - スラッシュコマンド使用
+```
+/post_buttons
+```
 
-### Bot の招待
+Bot が以下のようなメッセージを投稿するので、ピン留め推奨です。
 
-1. Discord Developer Portal で OAuth2 URL Generator を開く
-2. **Scopes** で以下を選択：
-   - `bot`
-   - `applications.commands`
-3. **Bot Permissions** で以下を選択：
-   - `Send Messages`
-4. 生成された URL で Bot をサーバーに招待
+```
+[やるぞ宣言] [やったよ報告]
+```
 
-## 📝 使い方
+### 2. 子どもたちの操作
 
-### やるぞ宣言
+- ボタンを押すだけでモーダルが開きます
+- 入力 → 送信すると固定チャンネルに投稿され、同時にスプレッドシートへ保存されます
+- バックアップとして `/yaru` `/yatta` コマンドも利用可能です
 
-1. Discord で `/yaru` と入力
-2. モーダル（入力フォーム）が表示される
-3. 「やること」を入力（必須）
-4. 「締切」を入力（任意）
-5. 送信ボタンをクリック
+### 投稿例
 
-投稿例：
 ```
 @ユーザー さんが「やるぞ宣言」をしました！
-■ やること: Pythonの勉強を1時間やる
-■締切: 明日の18時まで
+■ やること: 国語プリントを1枚やる
+■ 締切: 今日の19時まで
 ```
 
-### やったよ報告
-
-1. Discord で `/yatta` と入力
-2. モーダルが表示される
-3. 「やったこと」を入力（必須）
-4. 「ひとこと感想」を入力（任意）
-5. 送信ボタンをクリック
-
-投稿例：
 ```
 @ユーザー さんが「やったよ報告」をしました！
-■ やったこと: Pythonの勉強を1時間やりました
-■ ひとこと感想: 思ったより難しかったけど楽しかった！
+■ やったこと: 国語プリントを1枚やりました
+■ ひとこと感想: 意外と簡単だった！
 ```
 
-## 🌐 Replit でのデプロイ
+## 🌐 Replit での常時稼働
 
-### 1. Replit プロジェクトを作成
+1. Replit で新規 Python repl を作成
+2. このリポジトリのファイルをアップロード
+3. Secrets に `.env` の値を登録（特に BOT_TOKEN, TARGET_CHANNEL_ID, ...）
+4. `python main.py` を Run コマンドに設定
+5. [UptimeRobot](https://uptimerobot.com/) などで `https://your-repl-name.replit.app/` を定期的に ping
 
-1. [Replit](https://replit.com/) にアクセス
-2. 「Create Repl」をクリック
-3. テンプレートで「Python」を選択
-4. プロジェクト名を入力（例: yaru-yatta-bot）
+## 🧪 データ連携の動作確認
 
-### 2. ファイルをアップロード
+1. `.env` を設定し `python main.py` を起動
+2. `/post_buttons` を実行してボタンを設置
+3. ボタンから「やるぞ宣言」「やったよ報告」を送信
+4. Discord 固定チャンネルに投稿されることを確認
+5. Google スプレッドシート `yaru_yatta_log` に1行追加されることを確認
 
-以下のファイルを Replit にアップロード：
-- `main.py`
-- `keep_alive.py`
-- `requirements.txt`
-
-### 3. 環境変数を設定
-
-Replit の Secrets タブで以下を設定：
-- Key: `BOT_TOKEN`
-- Value: あなたの Bot トークン
-
-### 4. 実行
-
-Replit の「Run」ボタンをクリックして Bot を起動。
-
-### 5. 常時稼働（任意）
-
-[UptimeRobot](https://uptimerobot.com/) で定期的に `https://your-repl.replit.app/` にアクセスするように設定すると、Bot が常時稼働します。
-
-## 📂 ファイル構成
-
-```
-yaru_yatta_bot/
-├── main.py              # Bot 本体
-├── keep_alive.py        # Replit 用 Web サーバー
-├── requirements.txt     # 依存パッケージ
-├── .env                 # 環境変数（Git 除外）
-├── .gitignore           # Git 除外設定
-├── plan.md              # 実装計画書
-└── README.md            # このファイル
-```
-
-## 🛠️ 開発
-
-### ローカルでのテスト
-
-```bash
-# 仮想環境を作成（任意）
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# 依存パッケージをインストール
-pip install -r requirements.txt
-
-# Bot を起動
-python main.py
-```
-
-### コードの説明
-
-- `main.py`: Bot のメインロジック
-  - スラッシュコマンド `/yaru` と `/yatta` の定義
-  - モーダル（入力フォーム）の実装
-  - 固定チャンネルへの投稿処理
-  
-- `keep_alive.py`: Replit 用の Web サーバー
-  - Flask で簡易的な HTTP サーバーを起動
-  - UptimeRobot などで定期的にアクセスさせることで Bot を稼働させ続ける
+トラブルシューティング：
+- スプレッドシート連携に失敗した場合、Bot は Discord 投稿後に警告メッセージを返信します
+- サービスアカウントの権限が足りない/シート名のミスが原因のことが多いです
 
 ## ⚠️ 注意事項
 
-### スラッシュコマンドの同期
-
-- 初回起動時、スラッシュコマンドが Discord サーバーに反映されるまで数分〜数時間かかる場合があります
-- コマンドが表示されない場合は、Discord を再起動してください
-
-### チャンネル ID の確認
-
-投稿先チャンネル ID は `main.py` の `TARGET_CHANNEL_ID` で設定されています：
-
-```python
-TARGET_CHANNEL_ID = 1435802151648497711
-```
-
-チャンネル ID を変更する場合：
-1. Discord で開発者モードを有効化
-2. チャンネルを右クリック → 「ID をコピー」
-3. `main.py` の `TARGET_CHANNEL_ID` を更新
-
-### Bot トークンの管理
-
-- `.env` ファイルは Git にコミットしないでください（`.gitignore` で除外済み）
-- トークンが漏洩した場合は、Discord Developer Portal で再生成してください
+- スラッシュコマンドが反映されるまで数分かかる場合があります。表示されない場合は Discord を再起動
+- `.env` と サービスアカウント JSON は Git にコミットしないでください
+- Google 側の API 呼び出しに失敗すると、Discord 投稿は成功してもシート保存が落ちる場合があります
 
 ## 📚 参考リンク
 
 - [discord.py ドキュメント](https://discordpy.readthedocs.io/)
 - [Discord Developer Portal](https://discord.com/developers/applications)
-- [Replit ドキュメント](https://docs.replit.com/)
-- [UptimeRobot](https://uptimerobot.com/)
+- [Google Cloud サービスアカウント](https://cloud.google.com/iam/docs/service-accounts)
+- [gspread ドキュメント](https://docs.gspread.org/en/latest/)
 
 ## 🤝 コントリビューション
 
-プルリクエストや Issue を歓迎します！
+Issue / Pull Request を歓迎します！
 
 ## 📄 ライセンス
 
 MIT License
-
----
-
-**作成日**: 2025年11月14日
-
